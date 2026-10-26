@@ -28,6 +28,7 @@ final class AudioManager {
     @ObservationIgnored private var volumeBeforeMute: Double?
     @ObservationIgnored private var mediaKeys: MediaKeyMonitor?
     @ObservationIgnored private var permissionTimer: Timer?
+    @ObservationIgnored private let hud = VolumeHUD()
 
     init() {
         refreshDevices()
@@ -209,6 +210,7 @@ final class AudioManager {
         case .mute:
             if !isRepeat { toggleMute() }
         }
+        hud.show(level: volume, isMuted: isMuted, deviceName: device.name)
         return true
     }
 
