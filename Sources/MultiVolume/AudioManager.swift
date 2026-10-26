@@ -138,9 +138,9 @@ final class AudioManager {
         inputMonitoringGranted = MediaKeyMonitor.hasInputMonitoringPermission
 
         if mediaKeys == nil {
-            mediaKeys = MediaKeyMonitor { [weak self] key, isPressed, isRepeat in
+            mediaKeys = MediaKeyMonitor { [weak self] key, isPressed, isRepeat, modifiers in
                 MainActor.assumeIsolated {
-                    self?.handleMediaKey(key, isPressed: isPressed, isRepeat: isRepeat) ?? false
+                    self?.handleMediaKey(key, isPressed: isPressed, isRepeat: isRepeat, modifiers: modifiers) ?? false
                 }
             }
         }
@@ -190,7 +190,12 @@ final class AudioManager {
     /// system's own volume handling is a silent no-op. For every ordinary
     /// device the event is passed straight through, so macOS keeps its native
     /// behaviour and its on-screen volume HUD, and this app changes nothing.
-    private func handleMediaKey(_ key: MediaKey, isPressed: Bool, isRepeat: Bool) -> Bool {
+    private func handleMediaKey(
+        _ key: MediaKey,
+        isPressed: Bool,
+        isRepeat: Bool,
+        modifiers: NSEvent.ModifierFlags
+    ) -> Bool {
         guard let device = currentDevice, device.isAggregate, device.canControlVolume else {
             return false
         }
@@ -198,7 +203,6 @@ final class AudioManager {
         // Consume the matching key-up too, so the system never sees half an event.
         guard isPressed else { return true }
 
-        let modifiers = NSEvent.modifierFlags
         let fine = modifiers.contains(.shift) && modifiers.contains(.option)
         let step = fine ? 1.0 / 64.0 : 1.0 / 16.0
 

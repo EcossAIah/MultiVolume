@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The menu panel now shrinks back to fit its content after the permission
   warning goes away, instead of leaving an empty strip of window.
 - No focus ring on the mute button when the panel opens.
+- ⇧⌥ fine volume steps now work. The modifiers were read from the live
+  keyboard state instead of the key event, so they were missed.
 
 ### Added
 

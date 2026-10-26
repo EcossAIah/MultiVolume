@@ -25,8 +25,6 @@ struct MenuContentView: View {
         .padding(12)
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
-        // No focus ring on the first control every time the panel opens.
-        .focusEffectDisabled()
         .background(WindowFitter())
         .onAppear { manager.refreshDevices() }
     }
@@ -219,7 +217,8 @@ struct MenuContentView: View {
 
 // MARK: - Window sizing
 
-/// Keeps the menu bar window the same height as its content.
+/// Keeps the menu bar window the same height as its content, and stops it
+/// opening with the first button focused.
 ///
 /// `MenuBarExtra` grows its window when the content grows but does not shrink
 /// it again, so once the permission warning disappears an empty strip of
@@ -231,9 +230,26 @@ private struct WindowFitter: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 
     private final class FittingView: NSView {
+        private var keyObserver: NSObjectProtocol?
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             fit()
+
+            if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
+            keyObserver = nil
+            guard let window else { return }
+
+            // AppKit focuses the first button (the mute icon) each time the
+            // panel opens, which draws a focus ring around it. Clear it once
+            // AppKit is done; Tab still moves focus for keyboard users.
+            keyObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak window] _ in
+                DispatchQueue.main.async { window?.makeFirstResponder(nil) }
+            }
         }
 
         override func layout() {
