@@ -1,6 +1,6 @@
 cask "multivolume" do
   version "1.1.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "63cfdebe55113f791e1269c94a34179f424a0826921011f4bd929390185be17c"
 
   url "https://github.com/EcossAIah/MultiVolume/releases/download/v#{version}/MultiVolume-#{version}.zip"
   name "MultiVolume"
