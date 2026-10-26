@@ -90,7 +90,7 @@ To start MultiVolume at login, add it under **System Settings > General > Login 
 
 Everything except the media keys works with no permissions.
 
-macOS sends the volume keys as system-defined HID events, not normal key presses. The only way to catch them is a `CGEventTap`, and macOS only allows that with the **Accessibility** permission. On some macOS versions, **Input Monitoring** is needed too. The menu shows the state of both, and **Open Settings…** asks for whichever one is missing. Media keys turn on by themselves once access is granted.
+macOS sends the volume keys as system-defined HID events, not normal key presses. The only way to catch them is a `CGEventTap`, and macOS only allows that with the **Accessibility** permission. On some macOS versions, **Input Monitoring** is needed too. While either is missing, the menu shows the state of both, and **Open Settings…** asks for whichever one is missing. Media keys turn on by themselves once access is granted.
 
 How the event tap is limited (`Sources/MultiVolume/MediaKeyMonitor.swift`):
 

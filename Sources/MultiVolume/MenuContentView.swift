@@ -18,8 +18,12 @@ struct MenuContentView: View {
             Divider()
             deviceSection
             Divider()
-            mediaKeysSection
-            Divider()
+            // Only shown while the volume keys need a permission. Once they
+            // work there is nothing to say.
+            if !manager.mediaKeysActive {
+                mediaKeysSection
+                Divider()
+            }
             footer
         }
         .padding(12)
@@ -137,52 +141,37 @@ struct MenuContentView: View {
 
     // MARK: - Media keys
 
-    @ViewBuilder
     private var mediaKeysSection: some View {
-        if manager.mediaKeysActive {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
-                Image(systemName: "keyboard")
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(manager.mediaKeyFailure?.summary ?? "Media keys unavailable")
+                    .font(.caption)
+            }
+
+            // Both permissions shown explicitly — they are separate grants,
+            // and a green Accessibility toggle tells you nothing about the
+            // other one.
+            permissionRow("Accessibility", granted: manager.accessibilityGranted)
+            permissionRow("Input Monitoring", granted: manager.inputMonitoringGranted)
+
+            if let failure = manager.mediaKeyFailure {
+                Text(failure.detail)
+                    .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Media keys active")
-                        .font(.caption)
-                    Text("Used only for aggregate devices")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        } else {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text(manager.mediaKeyFailure?.summary ?? "Media keys unavailable")
-                        .font(.caption)
-                }
 
-                // Both permissions shown explicitly — they are separate grants,
-                // and a green Accessibility toggle tells you nothing about the
-                // other one.
-                permissionRow("Accessibility", granted: manager.accessibilityGranted)
-                permissionRow("Input Monitoring", granted: manager.inputMonitoringGranted)
-
-                if let failure = manager.mediaKeyFailure {
-                    Text(failure.detail)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HStack(spacing: 6) {
-                    Button("Open Settings…") { manager.requestMediaKeyPermissions() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    Button("Retry") { manager.startMediaKeys() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                }
-                .font(.caption)
+            HStack(spacing: 6) {
+                Button("Open Settings…") { manager.requestMediaKeyPermissions() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                Button("Retry") { manager.startMediaKeys() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
             }
+            .font(.caption)
         }
     }
 
