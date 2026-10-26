@@ -13,6 +13,8 @@ cask "multivolume" do
 
   uninstall quit: "io.github.ecossaiah.multivolume"
 
+  zap trash: "~/Library/Preferences/io.github.ecossaiah.multivolume.plist"
+
   caveats <<~EOS
     MultiVolume is not notarized, so macOS blocks the first launch.
     Open it once, then go to System Settings > Privacy & Security and click Open Anyway.

@@ -51,6 +51,24 @@ The release build is signed with a self-signed certificate, not notarized, so Ga
 
 Because every release is signed with the same certificate, macOS keeps the Accessibility and Input Monitoring grants when you update. (Updating from 1.0.0, which was ad-hoc signed, needs them once more.)
 
+## Uninstall
+
+**Homebrew:**
+
+```sh
+brew uninstall --zap --cask multivolume
+```
+
+`--zap` also deletes the settings file. Without it, only the app is removed.
+
+**By hand:** quit MultiVolume, delete `/Applications/MultiVolume.app`, then run `defaults delete io.github.ecossaiah.multivolume`.
+
+Either way, macOS keeps the app's entries under **System Settings > Privacy & Security > Accessibility** and **Input Monitoring**. Select MultiVolume in each list and click **−** to remove them. To do this from Terminal instead, run this *before* uninstalling, while the app is still installed:
+
+```sh
+tccutil reset All io.github.ecossaiah.multivolume
+```
+
 ## Usage
 
 Click the menu bar icon to open the panel:

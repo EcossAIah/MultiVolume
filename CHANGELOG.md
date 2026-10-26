@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-26
+
+### Fixed
+
+- The menu panel now shrinks back to fit its content after the permission
+  warning goes away, instead of leaving an empty strip of window.
+- No focus ring on the mute button when the panel opens.
+
+### Added
+
+- `brew uninstall --zap --cask multivolume` also removes the settings file,
+  and the README explains how to remove the privacy permission entries.
+
 ## [1.1.0] - 2026-10-26
 
 ### Added
@@ -46,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hardened-runtime signing, self-verification of the signed bundle, and a
   release zip.
 
-[Unreleased]: https://github.com/EcossAIah/MultiVolume/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/EcossAIah/MultiVolume/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/EcossAIah/MultiVolume/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/EcossAIah/MultiVolume/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/EcossAIah/MultiVolume/releases/tag/v1.0.0

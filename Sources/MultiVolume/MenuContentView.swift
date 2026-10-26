@@ -24,6 +24,10 @@ struct MenuContentView: View {
         }
         .padding(12)
         .frame(width: 300)
+        .fixedSize(horizontal: false, vertical: true)
+        // No focus ring on the first control every time the panel opens.
+        .focusEffectDisabled()
+        .background(WindowFitter())
         .onAppear { manager.refreshDevices() }
     }
 
@@ -209,6 +213,48 @@ struct MenuContentView: View {
                 .buttonStyle(.borderless)
                 .font(.caption)
                 .keyboardShortcut("q")
+        }
+    }
+}
+
+// MARK: - Window sizing
+
+/// Keeps the menu bar window the same height as its content.
+///
+/// `MenuBarExtra` grows its window when the content grows but does not shrink
+/// it again, so once the permission warning disappears an empty strip of
+/// window is left behind. This resizes the window to fit, keeping its top edge
+/// pinned under the menu bar.
+private struct WindowFitter: NSViewRepresentable {
+
+    func makeNSView(context: Context) -> NSView { FittingView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class FittingView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            fit()
+        }
+
+        override func layout() {
+            super.layout()
+            fit()
+        }
+
+        private func fit() {
+            // This view is the content's background, so its height is the
+            // content's height.
+            guard let window else { return }
+            let height = bounds.height
+            guard height > 0, abs(window.contentLayoutRect.height - height) > 0.5 else { return }
+
+            var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: NSSize(
+                width: window.contentLayoutRect.width,
+                height: height
+            )))
+            frame.origin.x = window.frame.minX
+            frame.origin.y = window.frame.maxY - frame.height
+            window.setFrame(frame, display: true)
         }
     }
 }
