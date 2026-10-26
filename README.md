@@ -35,6 +35,7 @@ The real problem with the original is the combination: an app with the Accessibi
 
 ```sh
 brew tap EcossAIah/multivolume https://github.com/EcossAIah/MultiVolume
+brew trust ecossaiah/multivolume   # Homebrew asks before using a third-party tap
 brew install --cask multivolume
 ```
 

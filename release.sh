@@ -74,6 +74,7 @@ gh release create "$TAG" "$ZIP" \
 
 \`\`\`sh
 brew tap EcossAIah/multivolume https://github.com/EcossAIah/MultiVolume
+brew trust ecossaiah/multivolume   # Homebrew asks before using a third-party tap
 brew install --cask multivolume   # first time
 brew upgrade --cask multivolume   # later updates
 \`\`\`
