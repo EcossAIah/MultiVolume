@@ -39,7 +39,15 @@ NOTES="$(awk -v v="$VERSION" '
 
 # ---------------------------------------------------------------- build
 
-swift test
+# The Command Line Tools ship the swift-testing macro plugin in a subfolder
+# that their build system does not search. Xcode does not need this.
+TEST_FLAGS=()
+TESTING_PLUGINS="$(xcode-select -p)/usr/lib/swift/host/plugins/testing"
+if [ -d "$TESTING_PLUGINS" ]; then
+  TEST_FLAGS=(-Xswiftc -plugin-path -Xswiftc "$TESTING_PLUGINS")
+fi
+
+swift test ${TEST_FLAGS[@]+"${TEST_FLAGS[@]}"}
 ./build.sh
 
 SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
