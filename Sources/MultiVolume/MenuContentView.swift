@@ -146,7 +146,7 @@ struct MenuContentView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Media keys active")
                         .font(.caption)
-                    Text("Used only for aggregate devices; ⇧⌥ for fine steps")
+                    Text("Used only for aggregate devices")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }

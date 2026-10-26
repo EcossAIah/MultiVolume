@@ -68,8 +68,8 @@ enum MediaKeyFailure: Equatable {
 ///     granted permission cannot be borrowed by another local process.
 final class MediaKeyMonitor {
 
-    /// `(key, isPressed, isRepeat, modifiers) -> shouldConsumeEvent`
-    typealias Handler = (MediaKey, Bool, Bool, NSEvent.ModifierFlags) -> Bool
+    /// `(key, isPressed, isRepeat) -> shouldConsumeEvent`
+    typealias Handler = (MediaKey, Bool, Bool) -> Bool
 
     private let handler: Handler
     private var eventTap: CFMachPort?
@@ -201,10 +201,7 @@ final class MediaKeyMonitor {
         // The handler decides whether we own this key press. Both the down and
         // the up event are consumed together so the system never sees half an
         // event.
-        // Modifiers come from the event itself. `NSEvent.modifierFlags` is the
-        // live keyboard state, which is not reliably current inside a tap.
-        let modifiers = nsEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let consume = handler(decoded.key, decoded.isPressed, decoded.isRepeat, modifiers)
+        let consume = handler(decoded.key, decoded.isPressed, decoded.isRepeat)
         return consume ? nil : passThrough
     }
 }

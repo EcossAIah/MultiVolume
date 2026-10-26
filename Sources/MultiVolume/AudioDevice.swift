@@ -49,7 +49,7 @@ enum AudioCatalog {
     // MARK: Private
 
     private static func makeDevice(_ id: AudioObjectID) -> AudioDevice? {
-        guard hasOutputStreams(id) else { return nil }
+        guard hasOutputStreams(id), isUserSelectable(id) else { return nil }
 
         let name = (try? HAL.readString(id, HAL.address(kAudioObjectPropertyName))) ?? "Unknown Device"
         let uid = (try? HAL.readString(id, HAL.address(kAudioDevicePropertyDeviceUID))) ?? ""
@@ -74,6 +74,24 @@ enum AudioCatalog {
         let addr = HAL.address(kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
         guard let streams = try? HAL.readObjectList(id, addr) else { return false }
         return !streams.isEmpty
+    }
+
+    /// Matches the Sound menu: skips devices that mark themselves hidden or
+    /// not eligible as the default output, such as Zoom's private
+    /// `ZoomAudioDevice`. A device that does not report a value is kept.
+    private static func isUserSelectable(_ id: AudioObjectID) -> Bool {
+        let hidden = HAL.address(kAudioDevicePropertyIsHidden)
+        if let value = try? HAL.read(id, hidden, as: UInt32.self), value != 0 {
+            return false
+        }
+        let canBeDefault = HAL.address(
+            kAudioDevicePropertyDeviceCanBeDefaultDevice,
+            scope: kAudioObjectPropertyScopeOutput
+        )
+        if let value = try? HAL.read(id, canBeDefault, as: UInt32.self), value == 0 {
+            return false
+        }
+        return true
     }
 
     private static func isAggregate(_ id: AudioObjectID) -> Bool {

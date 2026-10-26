@@ -80,7 +80,7 @@ Click the menu bar icon to open the panel:
 
 Media keys (F10 / F11 / F12) work once the permission is granted (see below):
 
-- Volume up and down change the volume in 1/16 steps. Hold ⇧⌥ for 1/64 steps.
+- Volume up and down change the volume in 1/16 steps.
 - Mute toggles mute.
 - MultiVolume only takes over these keys when the default output is an aggregate device. On any other device it passes them through, so macOS handles them as usual and shows its own volume overlay. For aggregate devices MultiVolume shows its own overlay at the top right of the screen.
 
