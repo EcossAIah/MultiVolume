@@ -31,11 +31,24 @@ The real problem with the original is the combination: an app with the Accessibi
 
 ## Install
 
+**Homebrew:**
+
+```sh
+brew tap EcossAIah/multivolume https://github.com/EcossAIah/MultiVolume
+brew install --cask multivolume
+```
+
+Update later with `brew upgrade --cask multivolume`.
+
+**Or by hand:**
+
 1. Download `MultiVolume-<version>.zip` from [Releases](https://github.com/EcossAIah/MultiVolume/releases).
 2. Unzip it and drag `MultiVolume.app` to `/Applications`.
 3. Open it. A speaker icon appears in the menu bar. The app has no Dock icon.
 
-The release build is ad-hoc signed, not notarized, so Gatekeeper blocks the first launch. On macOS 15 and later, try to open the app once, then go to **System Settings > Privacy & Security** and click **Open Anyway**. The button stays there for about an hour after the blocked launch and asks for an administrator password. If you'd rather not do that, [build from source](#build-from-source). A local build has no quarantine flag, so Gatekeeper doesn't block it.
+The release build is signed with a self-signed certificate, not notarized, so Gatekeeper blocks the first launch. On macOS 15 and later, try to open the app once, then go to **System Settings > Privacy & Security** and click **Open Anyway**. The button stays there for about an hour after the blocked launch and asks for an administrator password. If you'd rather not do that, [build from source](#build-from-source). A local build has no quarantine flag, so Gatekeeper doesn't block it.
+
+Because every release is signed with the same certificate, macOS keeps the Accessibility and Input Monitoring grants when you update. (Updating from 1.0.0, which was ad-hoc signed, needs them once more.)
 
 ## Usage
 
@@ -50,7 +63,7 @@ Media keys (F10 / F11 / F12) work once the permission is granted (see below):
 
 - Volume up and down change the volume in 1/16 steps. Hold ⇧⌥ for 1/64 steps.
 - Mute toggles mute.
-- MultiVolume only takes over these keys when the default output is an aggregate device. On any other device it passes them through, so macOS handles them as usual and shows its own volume overlay.
+- MultiVolume only takes over these keys when the default output is an aggregate device. On any other device it passes them through, so macOS handles them as usual and shows its own volume overlay. For aggregate devices MultiVolume shows its own overlay at the top right of the screen.
 
 To start MultiVolume at login, add it under **System Settings > General > Login Items**.
 
@@ -116,7 +129,9 @@ Then install:
 cp -R build/MultiVolume.app /Applications/
 ```
 
-To keep the Accessibility grant across rebuilds, sign with a fixed identity (`security find-identity -v -p codesigning` lists yours). A free Apple ID provides an "Apple Development" certificate.
+To keep the Accessibility grant across rebuilds, run `./make-signing-cert.sh` once. It creates a self-signed certificate in your login keychain, and `build.sh` uses it from then on. Any other identity works too via `SIGN_ID` (`security find-identity -v -p codesigning` lists yours).
+
+To publish a release, bump the version in `Resources/Info.plist`, add a `CHANGELOG.md` section for it, commit, and run `./release.sh`. It tests, builds, updates the cask, tags, pushes, and creates the GitHub release.
 
 To regenerate the app icon (needs Python 3 and Pillow):
 
@@ -140,18 +155,20 @@ Sources/MultiVolume/
   AudioManager.swift       observable state, listeners, media-key policy
   MediaKeyMonitor.swift    CGEventTap for the volume keys (the only permissioned code)
   MenuContentView.swift    menu UI
+  VolumeHUD.swift          on-screen volume overlay for the volume keys
   MultiVolumeApp.swift     entry point
 Tests/MultiVolumeTests/    media-key event decoding tests
 icon/                      icon master, iconset, and the scripts that produce them
+Casks/multivolume.rb       Homebrew cask, updated by release.sh
 ```
 
 ## Limitations
 
-- No on-screen volume overlay for aggregate devices. The system overlay comes from a private framework, so watch the menu bar icon instead. Normal devices still get the system overlay.
+- The overlay for aggregate devices is MultiVolume's own, not the system one, which comes from a private framework. It looks close but not identical.
 - Every sub-device gets the same volume value. Their relative balance isn't kept, and devices with different volume curves may not sound equally loud.
 - Sub-devices without a settable volume control, such as many HDMI and DisplayPort outputs, are skipped. If none of them have one, the slider is disabled.
 - Only the current default output device can be controlled.
-- Ad-hoc signed builds get a new code hash on every update or rebuild, so macOS drops the Accessibility grant. To grant it again, remove the old entry under Privacy & Security, then add the app back.
+- Ad-hoc signed builds (anything built without the certificate from `make-signing-cert.sh`) get a new code hash on every rebuild, so macOS drops the Accessibility grant. To grant it again, remove the old entry under Privacy & Security, then add the app back.
 
 ## License
 

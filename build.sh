@@ -2,10 +2,13 @@
 #
 # Builds MultiVolume as a hardened-runtime .app bundle and a release zip.
 #
-#   ./build.sh                      # ad-hoc signed, hardened runtime
+#   ./build.sh                      # hardened runtime; see SIGN_ID below
 #   SIGN_ID="Apple Development: Name (TEAMID)" ./build.sh
 #   BUNDLE_ID=com.example.multivolume ./build.sh
 #   UNIVERSAL=0 ./build.sh          # native architecture only
+#
+# SIGN_ID defaults to the certificate from ./make-signing-cert.sh when it is in
+# the keychain, and to ad-hoc ("-") otherwise, as on CI.
 #
 # Output:
 #   build/MultiVolume.app
@@ -15,7 +18,14 @@ set -euo pipefail
 
 APP_NAME="MultiVolume"
 BUNDLE_ID="${BUNDLE_ID:-io.github.ecossaiah.multivolume}"
-SIGN_ID="${SIGN_ID:--}"
+DEFAULT_CERT="EcossAIah Self-Signed"
+if [ -z "${SIGN_ID:-}" ]; then
+  if security find-certificate -c "$DEFAULT_CERT" >/dev/null 2>&1; then
+    SIGN_ID="$DEFAULT_CERT"
+  else
+    SIGN_ID="-"
+  fi
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$ROOT/build"
@@ -172,11 +182,8 @@ if [ "$SIGN_ID" = "-" ]; then
 NOTE: this build is ad-hoc signed. Its code hash changes on every rebuild, so
 macOS treats each rebuild as a different app and the Accessibility grant
 (needed for the media keys) has to be given again. To keep the grant across
-rebuilds, sign with a stable identity:
+rebuilds, create a fixed certificate once:
 
-  security find-identity -v -p codesigning
-  SIGN_ID="Apple Development: Name (TEAMID)" ./build.sh
-
-A free Apple ID provides an "Apple Development" certificate.
+  ./make-signing-cert.sh
 NOTE
 fi

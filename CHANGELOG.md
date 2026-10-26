@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-26
+
+### Added
+
+- On-screen volume indicator when the volume keys change an aggregate
+  device, since the system indicator does not appear for keys this app
+  handles.
+- Homebrew cask: install with `brew install --cask multivolume`, update with
+  `brew upgrade --cask multivolume`.
+- `make-signing-cert.sh` and `release.sh` for signed builds and one-command
+  releases.
+
+### Changed
+
+- Releases are signed with a fixed self-signed certificate instead of
+  ad-hoc, so macOS keeps the Accessibility and Input Monitoring grants across
+  updates. Updating from 1.0.0 needs those grants once more; after that they
+  persist. The app is still not notarized.
+
 ## [1.0.0] - 2026-10-25
 
 ### Added
@@ -27,5 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hardened-runtime signing, self-verification of the signed bundle, and a
   release zip.
 
-[Unreleased]: https://github.com/EcossAIah/MultiVolume/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/EcossAIah/MultiVolume/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/EcossAIah/MultiVolume/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/EcossAIah/MultiVolume/releases/tag/v1.0.0
