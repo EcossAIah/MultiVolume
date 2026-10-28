@@ -37,10 +37,12 @@ struct MenuContentView: View {
                 set: { loginItem.setEnabled($0) }
             ))
             .toggleStyle(.checkbox)
-            .font(.caption)
             Divider()
             footer
         }
+        // macOS text styles: Body 13pt for rows and controls, Subheadline
+        // 11pt for headers and secondary lines, Footnote 10pt for fine print.
+        .font(.body)
         .padding(12)
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
@@ -62,12 +64,12 @@ struct MenuContentView: View {
                     .truncationMode(.middle)
                 Spacer()
                 Text("\(Int((manager.volume * 100).rounded()))%")
-                    .font(.subheadline.monospacedDigit())
+                    .font(.body.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
             Text(manager.statusDescription)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
@@ -103,24 +105,21 @@ struct MenuContentView: View {
         Button(label) { manager.adjustVolume(by: delta) }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .font(.caption.monospacedDigit())
+            .monospacedDigit()
     }
 
     // MARK: - Balance
 
     private var balanceSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Device Balance")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            sectionHeader("Device Balance")
 
             ForEach(manager.members) { member in
                 HStack(spacing: 8) {
                     Text(member.name)
-                        .font(.caption)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .frame(width: 100, alignment: .leading)
+                        .frame(width: 110, alignment: .leading)
 
                     Slider(value: Binding(
                         get: { member.share },
@@ -129,9 +128,9 @@ struct MenuContentView: View {
                     .controlSize(.small)
 
                     Text("\(Int((member.share * 100).rounded()))%")
-                        .font(.caption.monospacedDigit())
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
-                        .frame(width: 32, alignment: .trailing)
+                        .frame(width: 38, alignment: .trailing)
                 }
             }
         }
@@ -141,49 +140,46 @@ struct MenuContentView: View {
 
     private var deviceSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Output Device")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            sectionHeader("Output Device")
 
             if manager.devices.isEmpty {
                 Text("No output devices found")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             ForEach(manager.devices) { device in
-                Button {
-                    manager.select(device)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark")
-                            .font(.caption.weight(.bold))
-                            .opacity(device.id == manager.currentDevice?.id ? 1 : 0)
-                            .frame(width: 12)
+                HStack(spacing: 6) {
+                    Button {
+                        manager.select(device)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
+                                .opacity(device.id == manager.currentDevice?.id ? 1 : 0)
+                                .frame(width: 14)
 
-                        Text(device.name)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                            Text(device.name)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
 
-                        Spacer()
+                            Spacer()
 
-                        if device.isAggregate {
-                            Text("AGG")
-                                .font(.system(size: 9, weight: .semibold))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
+                            if device.isAggregate {
+                                badge("AGG")
+                            }
                         }
-                        if !device.canControlVolume {
-                            Image(systemName: "slider.horizontal.below.rectangle")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .help("No settable volume control")
-                        }
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+
+                    // Outside the button, so clicking it never selects the device.
+                    if !device.canControlVolume {
+                        InfoTip(text: noVolumeReason(for: device))
+                            .frame(width: 16, height: 16)
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -208,15 +204,12 @@ struct MenuContentView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .font(.caption)
         }
     }
 
     private var multiOutputEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(editingDevice == nil ? "New Multi-Output Device" : "Edit Multi-Output Device")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            sectionHeader(editingDevice == nil ? "New Multi-Output Device" : "Edit Multi-Output Device")
 
             TextField("Name", text: Binding(get: { editor.name }, set: { editor.name = $0 }))
                 .textFieldStyle(.roundedBorder)
@@ -232,28 +225,23 @@ struct MenuContentView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                         if editor.selection.first == device.uid {
-                            Text("CLOCK")
-                                .font(.system(size: 8, weight: .semibold))
-                                .padding(.horizontal, 3)
-                                .padding(.vertical, 1)
-                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
+                            badge("CLOCK")
                                 .help("Timing follows this device. The others are drift-corrected to it.")
                         }
                     }
-                    .font(.caption)
                 }
                 .toggleStyle(.checkbox)
             }
 
             if editor.selection.count < 2 {
                 Text("Tick at least two devices.")
-                    .font(.system(size: 10))
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             if let message = editor.errorMessage {
                 Text(message)
-                    .font(.system(size: 10))
+                    .font(.footnote)
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -277,7 +265,6 @@ struct MenuContentView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .font(.caption)
         }
     }
 
@@ -294,7 +281,6 @@ struct MenuContentView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 Text(manager.mediaKeyFailure?.summary ?? "Media keys unavailable")
-                    .font(.caption)
             }
 
             // Both permissions shown explicitly — they are separate grants,
@@ -305,7 +291,7 @@ struct MenuContentView: View {
 
             if let failure = manager.mediaKeyFailure {
                 Text(failure.detail)
-                    .font(.system(size: 10))
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -318,19 +304,43 @@ struct MenuContentView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
-            .font(.caption)
         }
     }
 
     private func permissionRow(_ label: String, granted: Bool) -> some View {
         HStack(spacing: 5) {
             Image(systemName: granted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 10))
+                .font(.subheadline)
                 .foregroundStyle(granted ? Color.green : Color.secondary)
             Text(label)
-                .font(.system(size: 10))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func noVolumeReason(for device: AudioDevice) -> String {
+        if device.isAggregate {
+            return "None of the devices inside \(device.name) lets macOS change its volume, "
+                + "so the volume keys and slider can't control it."
+        }
+        return "\(device.name) doesn't let macOS change its volume. This is common for "
+            + "HDMI and DisplayPort monitors. Use the device's own buttons or remote instead. "
+            + "In a multi-output device it still plays, at whatever level the device is set to."
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+
+    private func badge(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
     }
 
     // MARK: - Footer
@@ -339,13 +349,11 @@ struct MenuContentView: View {
         HStack {
             Button("Refresh") { manager.refreshDevices() }
                 .buttonStyle(.borderless)
-                .font(.caption)
 
             Spacer()
 
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.borderless)
-                .font(.caption)
                 .keyboardShortcut("q")
         }
     }

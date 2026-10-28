@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The volume overlay is interactive: hovering shows a slider, the left
+  speaker mutes, the right speaker sets full volume, and × closes it. It
+  uses Liquid Glass on macOS 26 and later.
+- The volume keys play the system feedback sound when "Play feedback when
+  volume is changed" is on.
+- Open at Login toggle in the menu.
+- Device Balance: a saved volume share for each device in a multi-output
+  device. The volume keys scale all of them and keep the balance.
+- Create, edit and delete multi-output devices from the menu.
+- An ⓘ next to devices without a volume control explains why, on hover.
+
+### Changed
+
+- The menu uses the standard macOS text styles throughout.
+
 ## [1.1.1] - 2026-10-27
 
 ### Fixed

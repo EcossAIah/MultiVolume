@@ -6,13 +6,13 @@
 [![License](https://img.shields.io/github/license/EcossAIah/MultiVolume)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)
 
-A menu bar volume control for macOS aggregate and multi-output audio devices.
+A menu bar volume control for macOS aggregate and multi-output audio devices. It can also create them, and balance the volume between the devices inside them.
 
 ## Why it exists
 
 macOS can't change the volume of an aggregate or multi-output device. The aggregate has no volume control of its own, so the Sound menu slider is greyed out and the volume keys do nothing.
 
-MultiVolume finds the aggregate's active sub-devices and sets the volume on each one.
+MultiVolume finds the aggregate's active sub-devices and sets the volume on each one. It can also create and edit multi-output devices itself, so you don't need Audio MIDI Setup.
 
 It is a from-scratch replacement for [MultiSoundChanger](https://github.com/rlxone/MultiSoundChanger), which has not been updated since 2021. No code was copied from it. The rewrite exists mostly for security reasons:
 
@@ -63,6 +63,8 @@ brew uninstall --zap --cask multivolume
 
 **By hand:** quit MultiVolume, delete `/Applications/MultiVolume.app`, then run `defaults delete io.github.ecossaiah.multivolume`.
 
+Before uninstalling either way, untick **Open at Login** if you turned it on. Multi-output devices made with MultiVolume are ordinary system devices and stay after uninstalling. Delete them first with **Edit Devices… > Delete**, or later in Audio MIDI Setup.
+
 Either way, macOS keeps the app's entries under **System Settings > Privacy & Security > Accessibility** and **Input Monitoring**. Select MultiVolume in each list and click **−** to remove them. To do this from Terminal instead, run this *before* uninstalling, while the app is still installed:
 
 ```sh
@@ -75,16 +77,20 @@ Click the menu bar icon to open the panel:
 
 - **Volume slider and mute.** These control the current default output device. On an aggregate device they act on every active sub-device.
 - **−10% / −5% / +5% / +10%** buttons for set steps.
-- **Output Device** list. Choosing a device makes it the system default, same as the Sound menu. Aggregate devices are tagged `AGG`. Devices without a software volume control get a small slider icon.
+- **Device Balance.** Shown when the current device is a multi-output device with two or more sub-devices that have a volume control. Each one gets a share from 0 to 100%. Its volume is the main volume times its share, so the slider and volume keys move everything together and keep the balance. Shares are saved per multi-output device.
+- **Output Device** list. Choosing a device makes it the system default, same as the Sound menu. Aggregate devices are tagged `AGG`. Devices without a software volume control, such as most HDMI and DisplayPort monitors, show an ⓘ. Hover over it to see why.
+- **New Multi-Output…** creates a multi-output device. Name it, tick two or more devices and click **Create**, and it becomes the output. The first device ticked, tagged `CLOCK`, sets the timing; the others are drift-corrected to it, as in Audio MIDI Setup.
+- **Edit Devices…** appears when the current device is an aggregate. It changes its name and devices, or deletes it.
+- **Open at Login.** Starts MultiVolume when you log in. It matches the entry under **System Settings > General > Login Items**.
 - **Refresh** and **Quit** (⌘Q).
 
 Media keys (F10 / F11 / F12) work once the permission is granted (see below):
 
 - Volume up and down change the volume in 1/16 steps.
 - Mute toggles mute.
-- MultiVolume only takes over these keys when the default output is an aggregate device. On any other device it passes them through, so macOS handles them as usual and shows its own volume overlay. For aggregate devices MultiVolume shows its own overlay at the top right of the screen.
-
-To start MultiVolume at login, add it under **System Settings > General > Login Items**.
+- MultiVolume only takes over these keys when the default output is an aggregate device. On any other device it passes them through, so macOS handles them as usual and shows its own volume overlay.
+- For aggregate devices MultiVolume shows its own overlay at the top right of the screen. Hover over it to get a slider. Click the left speaker to mute, the right speaker for full volume, or **×** to close it.
+- When **Play feedback when volume is changed** is on in **System Settings > Sound**, the volume keys and the overlay's right speaker play the system feedback sound, as macOS does.
 
 ## Permissions and privacy
 
@@ -163,6 +169,9 @@ python3 icon/generate_icon.py && python3 icon/make_iconset.py
 - `AudioCatalog` lists output devices through the CoreAudio HAL. A device with transport type `kAudioDeviceTransportTypeAggregate` is an aggregate. Both Aggregate and Multi-Output devices from Audio MIDI Setup count. For these, the app reads `kAudioAggregateDevicePropertyActiveSubDeviceList`.
 - A device can be a volume target if it has a settable `kAudioDevicePropertyVolumeScalar`. The app tries the main element first. If that isn't settable, it uses the preferred stereo channel pair.
 - Setting the volume writes the same value (0 to 1) to every target. The value shown is the average of all targets.
+- For a multi-output device with two or more targets, each target is set to the main volume times its share. The main volume shown is the highest target volume divided by its share. Shares are stored in the app's settings, keyed by the device's UID.
+- Multi-output devices are created with `AudioHardwareCreateAggregateDevice`, the public API Audio MIDI Setup uses, as public stacked aggregates. Editing one destroys it and creates it again with the same UID, because CoreAudio can't redo drift correction in place. The same UID keeps its saved shares.
+- **Open at Login** uses `SMAppService.mainApp`.
 - Mute uses the hardware mute property where one exists. Many aggregates have none. For those, mute sets the volume to 0 and unmute restores the earlier level.
 - CoreAudio property listeners watch the device list, the default output device, and each target's volume and mute. Changes made by other apps show up right away. Each listener is removed when its owner is freed.
 - The UI is a SwiftUI `MenuBarExtra`. The app runs as an agent (`LSUIElement`), so it has no Dock icon.
@@ -173,8 +182,13 @@ Sources/MultiVolume/
   AudioDevice.swift        device discovery, sub-device resolution, volume and mute
   AudioManager.swift       observable state, listeners, media-key policy
   MediaKeyMonitor.swift    CGEventTap for the volume keys (the only permissioned code)
+  MultiOutputDevices.swift create, rebuild and delete multi-output devices
+  MultiOutputEditor.swift  state for the in-menu multi-output editor
   MenuContentView.swift    menu UI
+  InfoTip.swift            the ⓘ and its instant tooltip
   VolumeHUD.swift          on-screen volume overlay for the volume keys
+  VolumeFeedback.swift     the volume-key feedback sound
+  LoginItem.swift          Open at Login
   MultiVolumeApp.swift     entry point
 Tests/MultiVolumeTests/    media-key event decoding tests
 icon/                      icon master, iconset, and the scripts that produce them
@@ -184,7 +198,8 @@ Casks/multivolume.rb       Homebrew cask, updated by release.sh
 ## Limitations
 
 - The overlay for aggregate devices is MultiVolume's own, not the system one, which comes from a private framework. It looks close but not identical.
-- Every sub-device gets the same volume value. Their relative balance isn't kept, and devices with different volume curves may not sound equally loud.
+- Outside Device Balance, every sub-device gets the same volume value, and devices with different volume curves may not sound equally loud. Use the balance shares to even them out.
+- Editing a multi-output device recreates it. If macOS refuses to delete one made elsewhere, the editor shows the error and nothing changes.
 - Sub-devices without a settable volume control, such as many HDMI and DisplayPort outputs, are skipped. If none of them have one, the slider is disabled.
 - Only the current default output device can be controlled.
 - Ad-hoc signed builds (anything built without the certificate from `make-signing-cert.sh`) get a new code hash on every rebuild, so macOS drops the Accessibility grant. To grant it again, remove the old entry under Privacy & Security, then add the app back.
