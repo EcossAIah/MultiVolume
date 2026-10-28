@@ -29,8 +29,16 @@ final class AudioManager {
     @ObservationIgnored private var mediaKeys: MediaKeyMonitor?
     @ObservationIgnored private var permissionTimer: Timer?
     @ObservationIgnored private let hud = VolumeHUD()
+    @ObservationIgnored private let feedback = VolumeFeedback()
 
     init() {
+        hud.onSetVolume = { [weak self] in self?.apply(volume: $0); self?.updateHUD() }
+        hud.onMute = { [weak self] in self?.setMuted(true); self?.updateHUD() }
+        hud.onMaximize = { [weak self] in
+            self?.apply(volume: 1)
+            self?.updateHUD()
+            self?.feedback.play()
+        }
         refreshDevices()
         installSystemListeners()
         startMediaKeys()
@@ -126,6 +134,10 @@ final class AudioManager {
 
     func toggleMute() { setMuted(!isMuted) }
 
+    private func updateHUD() {
+        hud.update(level: volume, isMuted: isMuted)
+    }
+
     func select(_ device: AudioDevice) {
         try? AudioCatalog.setDefaultOutputDevice(device.id)
         refreshDevices()
@@ -203,8 +215,10 @@ final class AudioManager {
         switch key {
         case .volumeUp:
             adjustVolume(by: step)
+            feedback.play()
         case .volumeDown:
             adjustVolume(by: -step)
+            feedback.play()
         case .mute:
             if !isRepeat { toggleMute() }
         }
