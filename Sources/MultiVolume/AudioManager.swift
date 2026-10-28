@@ -12,10 +12,22 @@ import SwiftUI
 @Observable
 final class AudioManager {
 
+    /// One device inside a multi-output device. Its volume is the main volume
+    /// times its share, so the volume keys keep the balance between them.
+    struct Member: Identifiable, Hashable {
+        let id: AudioObjectID
+        let uid: String
+        let name: String
+        var share: Double
+    }
+
     private(set) var devices: [AudioDevice] = []
     private(set) var currentDevice: AudioDevice?
     private(set) var volume: Double = 0
     private(set) var isMuted: Bool = false
+    /// Empty unless the current device is a multi-output device with more than
+    /// one sub-device to balance.
+    private(set) var members: [Member] = []
 
     private(set) var accessibilityGranted = MediaKeyMonitor.hasAccessibilityPermission
     private(set) var inputMonitoringGranted = MediaKeyMonitor.hasInputMonitoringPermission
@@ -76,6 +88,7 @@ final class AudioManager {
         devices = AudioCatalog.outputDevices()
         let defaultID = AudioCatalog.defaultOutputDeviceID()
         currentDevice = devices.first { $0.id == defaultID }
+        loadMembers()
         installDeviceListeners()
         refreshLevels()
     }
@@ -86,7 +99,7 @@ final class AudioManager {
             isMuted = false
             return
         }
-        let level = Double(VolumeControl.volume(of: device) ?? 0)
+        let level = readLevel(of: device)
         volume = level
         isMuted = VolumeControl.isMuted(device) || (softwareMuted && level <= 0.0001)
     }
@@ -97,7 +110,7 @@ final class AudioManager {
         guard let device = currentDevice, device.canControlVolume else { return }
         let clamped = min(max(newValue, 0), 1)
         volume = clamped
-        VolumeControl.setVolume(Float(clamped), on: device)
+        writeLevel(clamped, to: device)
 
         if clamped > 0.0001 {
             softwareMuted = false
@@ -120,9 +133,9 @@ final class AudioManager {
             softwareMuted = muted
             if muted {
                 volumeBeforeMute = volume
-                VolumeControl.setVolume(0, on: device)
+                writeLevel(0, to: device)
             } else {
-                VolumeControl.setVolume(Float(volumeBeforeMute ?? 0.25), on: device)
+                writeLevel(volumeBeforeMute ?? 0.25, to: device)
             }
         } else {
             softwareMuted = false
@@ -134,12 +147,92 @@ final class AudioManager {
 
     func toggleMute() { setMuted(!isMuted) }
 
+    /// Sets how loud one sub-device is relative to the others, and remembers it.
+    func setShare(_ share: Double, for member: Member) {
+        guard let device = currentDevice,
+              let index = members.firstIndex(where: { $0.id == member.id }) else { return }
+        members[index].share = min(max(share, 0), 1)
+
+        var saved = savedShares(for: device)
+        saved[member.uid] = members[index].share
+        UserDefaults.standard.set(saved, forKey: sharesKey(for: device))
+
+        if !softwareMuted {
+            VolumeControl.setVolume(Float(volume * members[index].share), onTarget: member.id)
+        }
+    }
+
+    // MARK: - Balance
+
+    private func loadMembers() {
+        guard let device = currentDevice, device.isAggregate, device.volumeTargets.count > 1 else {
+            members = []
+            return
+        }
+        let saved = savedShares(for: device)
+        members = device.volumeTargets.map { target in
+            let uid = AudioCatalog.uid(of: target)
+            return Member(id: target, uid: uid, name: AudioCatalog.name(of: target), share: saved[uid] ?? 1)
+        }
+    }
+
+    private func sharesKey(for device: AudioDevice) -> String { "shares.\(device.uid)" }
+
+    private func savedShares(for device: AudioDevice) -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: sharesKey(for: device)) as? [String: Double] ?? [:]
+    }
+
+    private func writeLevel(_ level: Double, to device: AudioDevice) {
+        guard !members.isEmpty else {
+            VolumeControl.setVolume(Float(level), on: device)
+            return
+        }
+        for member in members {
+            VolumeControl.setVolume(Float(level * member.share), onTarget: member.id)
+        }
+    }
+
+    /// The main volume is whatever, times each share, gives the sub-device
+    /// volumes; the loudest-relative sub-device decides it.
+    private func readLevel(of device: AudioDevice) -> Double {
+        let scaled = members.compactMap { member -> Double? in
+            guard member.share > 0.01, let level = VolumeControl.volume(ofTarget: member.id) else { return nil }
+            return Double(level) / member.share
+        }
+        guard let level = scaled.max() else {
+            return members.isEmpty ? Double(VolumeControl.volume(of: device) ?? 0) : volume
+        }
+        return min(level, 1)
+    }
+
     private func updateHUD() {
         hud.update(level: volume, isMuted: isMuted)
     }
 
     func select(_ device: AudioDevice) {
         try? AudioCatalog.setDefaultOutputDevice(device.id)
+        refreshDevices()
+    }
+
+    // MARK: - Multi-output devices
+
+    /// Creates the device and switches output to it.
+    func createMultiOutput(name: String, subDeviceUIDs: [String]) throws {
+        let id = try MultiOutputDevices.create(name: name, subDeviceUIDs: subDeviceUIDs)
+        try? AudioCatalog.setDefaultOutputDevice(id)
+        refreshDevices()
+    }
+
+    func updateMultiOutput(_ device: AudioDevice, name: String, subDeviceUIDs: [String]) throws {
+        let wasDefault = device.id == currentDevice?.id
+        let id = try MultiOutputDevices.rebuild(device, name: name, subDeviceUIDs: subDeviceUIDs)
+        if wasDefault { try? AudioCatalog.setDefaultOutputDevice(id) }
+        refreshDevices()
+    }
+
+    func deleteMultiOutput(_ device: AudioDevice) throws {
+        try MultiOutputDevices.destroy(device.id)
+        UserDefaults.standard.removeObject(forKey: sharesKey(for: device))
         refreshDevices()
     }
 

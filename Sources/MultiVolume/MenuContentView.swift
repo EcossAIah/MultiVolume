@@ -4,6 +4,8 @@ import SwiftUI
 struct MenuContentView: View {
 
     let manager: AudioManager
+    let loginItem: LoginItem
+    let editor: MultiOutputEditor
 
     private var volumeBinding: Binding<Double> {
         Binding(
@@ -16,7 +18,13 @@ struct MenuContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             volumeSection
             Divider()
+            if !manager.members.isEmpty {
+                balanceSection
+                Divider()
+            }
             deviceSection
+            Divider()
+            multiOutputSection
             Divider()
             // Only shown while the volume keys need a permission. Once they
             // work there is nothing to say.
@@ -24,13 +32,23 @@ struct MenuContentView: View {
                 mediaKeysSection
                 Divider()
             }
+            Toggle("Open at Login", isOn: Binding(
+                get: { loginItem.isEnabled },
+                set: { loginItem.setEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.caption)
+            Divider()
             footer
         }
         .padding(12)
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
         .background(WindowFitter())
-        .onAppear { manager.refreshDevices() }
+        .onAppear {
+            manager.refreshDevices()
+            loginItem.refresh()
+        }
     }
 
     // MARK: - Volume
@@ -88,6 +106,37 @@ struct MenuContentView: View {
             .font(.caption.monospacedDigit())
     }
 
+    // MARK: - Balance
+
+    private var balanceSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Device Balance")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ForEach(manager.members) { member in
+                HStack(spacing: 8) {
+                    Text(member.name)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(width: 100, alignment: .leading)
+
+                    Slider(value: Binding(
+                        get: { member.share },
+                        set: { manager.setShare($0, for: member) }
+                    ), in: 0...1)
+                    .controlSize(.small)
+
+                    Text("\(Int((member.share * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .trailing)
+                }
+            }
+        }
+    }
+
     // MARK: - Devices
 
     private var deviceSection: some View {
@@ -137,6 +186,104 @@ struct MenuContentView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Multi-output
+
+    /// Devices that can go into a multi-output device.
+    private var candidates: [AudioDevice] {
+        manager.devices.filter { !$0.isAggregate }
+    }
+
+    @ViewBuilder
+    private var multiOutputSection: some View {
+        if editor.isOpen {
+            multiOutputEditor
+        } else {
+            HStack(spacing: 6) {
+                Button("New Multi-Output…") { editor.startCreating() }
+                if let device = manager.currentDevice, device.isAggregate {
+                    Button("Edit Devices…") { editor.startEditing(device) }
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .font(.caption)
+        }
+    }
+
+    private var multiOutputEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(editingDevice == nil ? "New Multi-Output Device" : "Edit Multi-Output Device")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            TextField("Name", text: Binding(get: { editor.name }, set: { editor.name = $0 }))
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+
+            ForEach(candidates) { device in
+                Toggle(isOn: Binding(
+                    get: { editor.isSelected(device) },
+                    set: { _ in editor.toggle(device) }
+                )) {
+                    HStack(spacing: 4) {
+                        Text(device.name)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if editor.selection.first == device.uid {
+                            Text("CLOCK")
+                                .font(.system(size: 8, weight: .semibold))
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
+                                .help("Timing follows this device. The others are drift-corrected to it.")
+                        }
+                    }
+                    .font(.caption)
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            if editor.selection.count < 2 {
+                Text("Tick at least two devices.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let message = editor.errorMessage {
+                Text(message)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 6) {
+                if let device = editingDevice {
+                    Button(editor.confirmingDelete ? "Confirm Delete" : "Delete") {
+                        if editor.confirmingDelete {
+                            editor.delete(device, using: manager)
+                        } else {
+                            editor.confirmingDelete = true
+                        }
+                    }
+                    .foregroundStyle(.red)
+                }
+                Spacer()
+                Button("Cancel") { editor.close() }
+                Button(editingDevice == nil ? "Create" : "Save") { editor.save(using: manager) }
+                    .disabled(!editor.canSave)
+                    .keyboardShortcut(.defaultAction)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .font(.caption)
+        }
+    }
+
+    private var editingDevice: AudioDevice? {
+        if case let .editing(device) = editor.mode { return device }
+        return nil
     }
 
     // MARK: - Media keys

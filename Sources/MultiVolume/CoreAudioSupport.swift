@@ -109,6 +109,19 @@ enum HAL {
         return value.takeRetainedValue() as String
     }
 
+    /// Reads a CFArray-of-CFString property, such as an aggregate's sub-device UIDs.
+    static func readStringArray(_ id: AudioObjectID, _ addr: AudioObjectPropertyAddress) throws -> [String] {
+        var a = addr
+        var size = UInt32(MemoryLayout<Unmanaged<CFArray>?>.size)
+        var unmanaged: Unmanaged<CFArray>?
+        let status = withUnsafeMutablePointer(to: &unmanaged) { ptr -> OSStatus in
+            AudioObjectGetPropertyData(id, &a, 0, nil, &size, ptr)
+        }
+        try verify(status, "GetPropertyData(array)")
+        guard let value = unmanaged else { return [] }
+        return value.takeRetainedValue() as? [String] ?? []
+    }
+
     static func readStereoChannels(_ id: AudioObjectID) -> [AudioObjectPropertyElement]? {
         var a = address(
             kAudioDevicePropertyPreferredChannelsForStereo,

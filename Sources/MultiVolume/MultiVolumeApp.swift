@@ -7,10 +7,12 @@ struct MultiVolumeApp: App {
     // enough. It also avoids the @State macro, whose compiler plugin is not
     // shipped with the Command Line Tools for recent SDKs.
     private let manager = AudioManager()
+    private let loginItem = LoginItem()
+    private let editor = MultiOutputEditor()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContentView(manager: manager)
+            MenuContentView(manager: manager, loginItem: loginItem, editor: editor)
         } label: {
             MenuBarLabel(manager: manager)
         }

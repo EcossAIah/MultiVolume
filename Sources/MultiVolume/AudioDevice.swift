@@ -46,13 +46,21 @@ enum AudioCatalog {
         try HAL.write(HAL.system, addr, id)
     }
 
+    static func name(of id: AudioObjectID) -> String {
+        (try? HAL.readString(id, HAL.address(kAudioObjectPropertyName))) ?? "Unknown Device"
+    }
+
+    static func uid(of id: AudioObjectID) -> String {
+        (try? HAL.readString(id, HAL.address(kAudioDevicePropertyDeviceUID))) ?? ""
+    }
+
     // MARK: Private
 
     private static func makeDevice(_ id: AudioObjectID) -> AudioDevice? {
         guard hasOutputStreams(id), isUserSelectable(id) else { return nil }
 
-        let name = (try? HAL.readString(id, HAL.address(kAudioObjectPropertyName))) ?? "Unknown Device"
-        let uid = (try? HAL.readString(id, HAL.address(kAudioDevicePropertyDeviceUID))) ?? ""
+        let name = name(of: id)
+        let uid = uid(of: id)
         let aggregate = isAggregate(id)
 
         let ownVolume = VolumeControl.volumeElements(for: id).isEmpty ? [] : [id]
@@ -136,41 +144,53 @@ enum VolumeControl {
 
     /// Average scalar volume (0...1) across every target the device drives.
     static func volume(of device: AudioDevice) -> Float? {
-        var samples: [Float] = []
-
-        for target in device.volumeTargets {
-            for element in volumeElements(for: target) {
-                let addr = HAL.address(
-                    kAudioDevicePropertyVolumeScalar,
-                    scope: kAudioObjectPropertyScopeOutput,
-                    element: element
-                )
-                if let value = try? HAL.read(target, addr, as: Float32.self) {
-                    samples.append(value)
-                }
-            }
-        }
-
+        let samples = device.volumeTargets.flatMap(elementVolumes)
         guard !samples.isEmpty else { return nil }
         return samples.reduce(0, +) / Float(samples.count)
+    }
+
+    /// Average scalar volume (0...1) of a single target.
+    static func volume(ofTarget target: AudioObjectID) -> Float? {
+        let samples = elementVolumes(target)
+        guard !samples.isEmpty else { return nil }
+        return samples.reduce(0, +) / Float(samples.count)
+    }
+
+    private static func elementVolumes(_ target: AudioObjectID) -> [Float] {
+        volumeElements(for: target).compactMap { element in
+            let addr = HAL.address(
+                kAudioDevicePropertyVolumeScalar,
+                scope: kAudioObjectPropertyScopeOutput,
+                element: element
+            )
+            return try? HAL.read(target, addr, as: Float32.self)
+        }
     }
 
     /// Applies a scalar volume (0...1) to every target the device drives.
     @discardableResult
     static func setVolume(_ value: Float, on device: AudioDevice) -> Bool {
+        var appliedAny = false
+        for target in device.volumeTargets where setVolume(value, onTarget: target) {
+            appliedAny = true
+        }
+        return appliedAny
+    }
+
+    /// Applies a scalar volume (0...1) to a single target.
+    @discardableResult
+    static func setVolume(_ value: Float, onTarget target: AudioObjectID) -> Bool {
         let clamped = min(max(value, 0), 1)
         var appliedAny = false
 
-        for target in device.volumeTargets {
-            for element in volumeElements(for: target) {
-                let addr = HAL.address(
-                    kAudioDevicePropertyVolumeScalar,
-                    scope: kAudioObjectPropertyScopeOutput,
-                    element: element
-                )
-                if (try? HAL.write(target, addr, Float32(clamped))) != nil {
-                    appliedAny = true
-                }
+        for element in volumeElements(for: target) {
+            let addr = HAL.address(
+                kAudioDevicePropertyVolumeScalar,
+                scope: kAudioObjectPropertyScopeOutput,
+                element: element
+            )
+            if (try? HAL.write(target, addr, Float32(clamped))) != nil {
+                appliedAny = true
             }
         }
         return appliedAny
